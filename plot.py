@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 def plot_cost(debug_x, debug_y, filename=None):
     plt.figure()
     plt.subplot(111)
-    plt.ylim(0, 2)
+    plt.ylim(0, 10)
     plt.plot(debug_x, debug_y)
     if filename:
         plt.savefig(filename)

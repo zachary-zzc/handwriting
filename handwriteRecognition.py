@@ -1,60 +1,76 @@
 from numpy import *
 from bpnetwork import bpNetWork
+from plot import plot_cost
 import struct
 import getopt
 import sys
 
 
-def load():
+def load(labels=None):
     """Load training set and test set from file
     Input:
-        None
+        labels: default--all 0-9 numbers will be load
+                others, training set and test set of numbers in labels will be load.
+                e.g., load((1, 2)) will load training set and test set with labels
+                1 and 2
     Output:
         train_X, train_Y: original training set
         test_X, test_Y: original test set
     """
-    trainDataFile = open('train-images.idx3-ubyte', 'rb')
+    if labels == None:
+        labels = set([i for i in range(10)])
+    else:
+        labels = set(labels)
+
+    try:
+        trainDataFile = open('train-images.idx3-ubyte', 'rb')
+    except IOError:
+        print('Cannot open training img file')
     trainDataMagicNr, trainDataSize, trainDataRows, trainDataCols \
                                 = struct.unpack('>IIII', trainDataFile.read(16))
-    train_X = []
-    while(1):
-        buf = trainDataFile.read(784)
-        if len(buf) < 784:
-            break
-        train_X.append(struct.unpack('>784B', buf))
-    trainDataFile.close()
-
-    trainLabelFile = open('train-labels.idx1-ubyte', 'rb')
+    try:
+        trainLabelFile = open('train-labels.idx1-ubyte', 'rb')
+    except IOError:
+        print('Cannot open training label file')
     trainLabelMagicNr, trainLabelSize \
                                 = struct.unpack('>II', trainLabelFile.read(8))
+
+    train_X = []
     train_Y = []
     while(1):
-        buf = trainLabelFile.read(1)
-        if len(buf) == 0:
+        bufimg = trainDataFile.read(784)
+        buflabel = trainLabelFile.read(1)
+        if len(bufimg) == 0 or len(buflabel) == 0:
             break
-        train_Y.append(struct.unpack('>1B', buf))
+        if struct.unpack('>1B', buflabel)[0] in labels:
+            train_X.append(struct.unpack('>784B', bufimg))
+            train_Y.append(struct.unpack('>1B', buflabel))
+    trainDataFile.close()
     trainLabelFile.close()
 
-    testDataFile = open('t10k-images.idx3-ubyte', 'rb')
+    try:
+        testDataFile = open('t10k-images.idx3-ubyte', 'rb')
+    except IOError:
+        print('Cannot open test img file')
     testDataMagicNr, testDataSize, testDataRows, testDataCols \
                                 = struct.unpack('>IIII', testDataFile.read(16))
-    test_X = []
-    while(1):
-        buf = testDataFile.read(784)
-        if len(buf) < 784:
-            break
-        test_X.append(struct.unpack('>784B', buf))
-    testDataFile.close()
-
-    testLabelFile = open('t10k-labels.idx1-ubyte', 'rb')
+    try:
+        testLabelFile = open('t10k-labels.idx1-ubyte', 'rb')
+    except IOError:
+        print('Cannot open test img file')
     testLabelMagicNr, testLabelSize \
                                 = struct.unpack('>II', testLabelFile.read(8))
+    test_X = []
     test_Y = []
     while(1):
-        buf = testLabelFile.read(1)
-        if len(buf) == 0:
+        bufimg = testDataFile.read(784)
+        buflabel = testLabelFile.read(1)
+        if len(bufimg) == 0 or len(buflabel) == 0:
             break
-        test_Y.append(struct.unpack('1B', buf))
+        if struct.unpack('1B', buflabel)[0] in labels:
+            test_X.append(struct.unpack('>784B', bufimg))
+            test_Y.append(struct.unpack('1B', buflabel))
+    testDataFile.close()
     testLabelFile.close()
 
     return tuple(train_X), tuple(train_Y), tuple(test_X), tuple(test_Y)
@@ -83,28 +99,34 @@ def extractPixelMapFeature(original_x):
 """Other features can be defined"""
 
 
-def encodeLabel(original_y):
+def encodeLabel(original_y, label_num):
     """k-of-1 label coding
     Input:
         original_y: original labels
+        label_num: 1-of-K or 1-0
     OutPut:
         y: encoded labels
     """
-    y = [0 for i in range(10)]
+    y = [0 for i in range(label_num)]
     y[original_y[0]] = 1
     return tuple(y)
 
 
-def preprocess(originalX, originalY):
+def preprocess(originalX, originalY, label_num):
     """convert features and labels to format training input
     Input:
         originalX, originalY: original data
+        label_num: classify type number
     Output:
         X: combine all features togather
         Y: encoded label
     """
     X = tuple([extractPixelMapFeature(x) for x in originalX])
-    Y = tuple([encodeLabel(y) for y in originalY])
+    labels = set(originalY)
+    if label_num > 2:
+        Y = tuple([encodeLabel(y, label_num) for y in originalY])
+    elif label_num == 2:
+        Y = tuple([(1,) if y == list(labels)[0] else (0,) for y in originalY])
     return X, Y
 
 
@@ -126,25 +148,35 @@ def initbpNetWork(hidden_layer_num,
     return bp
 
 
-def decodeLabel(output_y):
+def decodeLabel(output_y, label_num):
     """convert bp network output labels to original format
     Input:
         output_y: classification result by bp network
+        label_num: 1-of-K label format or two class 0-1 label
     Output:
         y: 1-of-K label format
     """
-    y = (array(output_y).argmax(),)
-    return y
+    if label_num > 2:
+        y = [0 for i in range(label_num)]
+        index = array(output_y).argmax()
+        y[index] = 1
+    elif label_num == 2:
+        if output_y >= 0.5:
+            y = (1, )
+        else:
+            y = (0, )
+    return tuple(y)
 
 
-def postprocess(output_Y):
+def postprocess(output_Y, label_num):
     """everything needs to be done in order to serve measurements
     Input:
         output_Y: classification results by bp network
+        label_num: determing 1-of-K decoding or one classifici
     Output:
         Y: 1-of-K label format
     """
-    Y = tuple([decodeLabel(y) for y in output_Y])
+    Y = tuple([decodeLabel(y, label_num) for y in output_Y])
     return Y
 
 
@@ -179,48 +211,58 @@ def measureCorrectRate(test_Y, output_Y):
 
 
 def main(argv=None):
+    shortopt = 'hu:f:s:t:'
+    longopt = ['help', 'unit', 'function', 'sigma', 'steps']
     if argv == None:
         argv = sys.argv
     try:
-        opts, args = getopt.getopt(argv[1:], 'hn', ['help'])
+        opts, args = getopt.getopt(argv[1:], shortopt, longopt)
     except getopt.GetoptError:
         print('for help use --help')
         sys.exit(2)
-    for opt, arg in opts:
-        if opt in ('-h', '--help'):
-            print('help!')
-            sys.exit()
-        elif opt == '-n':
-            hidden_layer_number = arg
-
-    print('#####Loading Data.#####')
-    origtrain_X, origtrain_Y, origtest_X, origtest_Y = load()
-    print('Training Data Length: {}\n \
-            Test Data Length: {}\n'.format(len(origtrain_Y),
-                                           len(origtest_Y)))
-
-    print('#####Training Data Preprocess.#####')
-    train_X, train_Y = preprocess(origtrain_X, origtrain_Y)
-
-    print('#####Init bpNetwork.#####')
+    # init bp network param
     hidden_layer_num = 1
     hidden_unit_list = (128, )
     acfunc_list = ('tanh', )
     output_func = 'sigmoid'
-    sigma = 1e-2
-    steps = 10000
-    print('NetWork Parameter:\n \
-           Hidden Layer Number: {}\n \
-           Hidden Layer Unit List: {}\n \
-           Hidden Layer Active Function List: {}\n \
-           Output Active Function: {}\n \
-           Gradient Descent Learning Rate: {}\n \
-           Iterator Steps: {}\n'.format(hidden_layer_num,
-                                        hidden_unit_list,
-                                        acfunc_list,
-                                        output_func,
-                                        sigma,
-                                        steps))
+    sigma = 1e-4
+    steps = 1000
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            print('help!')
+            sys.exit()
+        elif opt in ('-u', '--unit'):
+            hidden_unit_list = (int(arg), )
+        elif opt in ('-f', '--function'):
+            output_func = arg
+        elif opt in ('-s', '--sigma'):
+            sigma = arg
+        elif opt in ('-t', '--steps'):
+            steps = arg
+    print('#####Loading Data.#####')
+    label_set = {1, 2}
+    label_type = len(label_set)
+    origtrain_X, origtrain_Y, origtest_X, origtest_Y = load(label_set)
+    print('Training Data Length: {}\n\
+Test Data Length: {}\n'.format(len(origtrain_Y),
+                               len(origtest_Y)))
+
+    print('#####Training Data Preprocess.#####')
+    train_X, train_Y = preprocess(origtrain_X, origtrain_Y, label_type)
+
+    print('#####Init bpNetwork.#####')
+    print('NetWork Parameter:\n\
+Hidden Layer Number: {}\n\
+Hidden Layer Unit List: {}\n\
+Hidden Layer Active Function List: {}\n\
+Output Active Function: {}\n\
+Gradient Descent Learning Rate: {}\n\
+Iterator Steps: {}\n'.format(hidden_layer_num,
+                             hidden_unit_list,
+                             acfunc_list,
+                             output_func,
+                             sigma,
+                             steps))
     bp = initbpNetWork(hidden_layer_num,
                        hidden_unit_list,
                        acfunc_list,
@@ -229,21 +271,23 @@ def main(argv=None):
                        steps)
 
     print('#####Start Training.#####')
-    bp.train(train_X[0:100], train_Y[0:100])
+    bp.train(train_X[0: 1000], train_Y[0: 1000])
+    plot_cost(bp.debug_x, bp.debug_y)
 
     print('#####End Training.#####')
 
     print('#####Start Test.#####')
     print('#####Preprocess Test Image.#####')
-    test_X, test_Y = preprocess(origtest_X, origtest_Y)
+    test_X, test_Y = preprocess(origtest_X, origtest_Y, label_type)
 
     print('#####Start Simulate.#####')
-    test_output_Y = bp.simulate(test_X[0:50])
+    test_output_Y = bp.simulate(test_X)
 
     print('#####Check Correct Rate.#####')
-    output_Y = postprocess(test_output_Y)
-    correctRate = measureCorrectRate(output_Y, origtest_Y[0:50])
-    print('Correct Rate of Classifier: {}'.format(correctRate))
+    label_num = len(set(test_Y))
+    output_Y = postprocess(test_output_Y, label_num)
+    correctRate = measureCorrectRate(output_Y, test_Y)
+    print('Correct Rate of Classifier: {:.2f}'.format(correctRate))
 
 
 if __name__ == '__main__':

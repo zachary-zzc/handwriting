@@ -1,6 +1,7 @@
 from numpy import *
 from tools import get_acfunc, get_gradfunc
 import matplotlib.pyplot as plt
+import sys, time
 
 class layer:
     def __init__(self, sigma, unit_num, acfunc):
@@ -113,7 +114,6 @@ class bpNetWork:
         for iter in range(self.hidden_layer_num):
             a = self.hidden_layers[iter].forward(a)
         # calculate output
-        # self.Y = self.output_func(self.hidden_layers[self.hidden_layer_num-1].forward(a))
         self.Y = self.output_func(a)
 
 
@@ -133,7 +133,12 @@ class bpNetWork:
 
 
     def costFunc(self, T):
-        return ((T - self.Y) ** 2).sum() / 2
+        if self.output_func.__name__ == 'line':
+            return ((T - self.Y) ** 2).sum() / 2
+        if self.output_func.__name__ == 'sigmoid':
+            # shrink self.Y avoid -infi log(self.Y) or log(1 - self.Y)
+            return (-T * log(self.Y * (1 - 1e-64)) - \
+                    (1 - T) * log(1 - self.Y * (1 - 1e-64))).sum()
 
 
 
@@ -154,35 +159,26 @@ class bpNetWork:
             self.backward_propagation(T)
             # update coefficients for each layer
             self.updatew()
+            # add process bar
+            process = int(step * 50/self.steps)
+            sys.stdout.write('training: [{}{}] {}%\r'.format('#' * process,
+                                                              '_' * (50 - process),
+                                                              process * 2))
+            sys.stdout.flush()
             # calculate cost function
+            self.cost = self.costFunc(T)
             self.debug_x.append(step)
-            self.debug_y.append(self.costFunc(T))
-        # record the last cost value
-        self.cost = self.costFunc(T)
+            self.debug_y.append(self.cost)
+            # end iterator if cost function is lower then 1e-10
+            if self.cost < 1e-64:
+                self.steps = step
+                sys.stdout.write('bp network converge after iterator {} steps'\
+                                 .format(self.steps))
+                break
 
 
     def simulate(self, X):
         self.forward_propagation(X)
         return self.Y
-
-
-    def test_plot(self, X, T):
-        steps = linspace(-1, 1, 100)
-        self.simulate(steps)
-        plt.figure()
-        plt.subplot(111)
-        plt.scatter(X, T)
-        plt.plot(steps, self.Y)
-        plt.show()
-
-
-    def plot_cost(self):
-        plt.figure()
-        plt.subplot(111)
-        plt.ylim(0, 2)
-        plt.plot(self.debug_x, self.debug_y)
-        plt.show()
-
-
 
 
