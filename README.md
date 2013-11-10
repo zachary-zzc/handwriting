@@ -26,7 +26,7 @@ To run the script, type
     
 For help usage print "-h" or "--help"
 
-To run unit test, type 
+To run unit test, go to test folder, type
 
     python3 bpnetworkTest.py
     python3 handwriteRecognitionTest.py
