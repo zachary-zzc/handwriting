@@ -1,3 +1,6 @@
+import sys
+sys.path.append('..')
+
 import handwriteRecognition
 import unittest
 import matplotlib.pyplot as plt
@@ -8,7 +11,7 @@ class handwriteRecognitionTest(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.train_X, self.train_Y, self.test_X, self.test_Y = \
-                                     handwriteRecognition.load()
+                                     handwriteRecognition.load('../data/')
 
     @classmethod
     def tearDownClass(self):

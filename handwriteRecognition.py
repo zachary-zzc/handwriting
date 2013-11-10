@@ -1,12 +1,12 @@
 from numpy import *
 from bpnetwork import bpNetWork
-from plot import plot_cost
+from utils.plot import plot_cost
 import struct
 import getopt
-import sys
+import sys, os
 
 
-def load(labels=None):
+def load(path, labels=None):
     """Load training set and test set from file
     Input:
         labels: default--all 0-9 numbers will be load
@@ -23,15 +23,19 @@ def load(labels=None):
         labels = set(labels)
 
     try:
-        trainDataFile = open('train-images.idx3-ubyte', 'rb')
+        trainDataFile = open(os.path.join(path,
+                                          'train-images.idx3-ubyte'), 'rb')
     except IOError:
         print('Cannot open training img file')
+        sys.exit(2)
     trainDataMagicNr, trainDataSize, trainDataRows, trainDataCols \
                                 = struct.unpack('>IIII', trainDataFile.read(16))
     try:
-        trainLabelFile = open('train-labels.idx1-ubyte', 'rb')
+        trainLabelFile = open(os.path.join(path,
+                                           'train-labels.idx1-ubyte'), 'rb')
     except IOError:
         print('Cannot open training label file')
+        sys.exit(2)
     trainLabelMagicNr, trainLabelSize \
                                 = struct.unpack('>II', trainLabelFile.read(8))
 
@@ -49,15 +53,19 @@ def load(labels=None):
     trainLabelFile.close()
 
     try:
-        testDataFile = open('t10k-images.idx3-ubyte', 'rb')
+        testDataFile = open(os.path.join(path,
+                                         't10k-images.idx3-ubyte'), 'rb')
     except IOError:
         print('Cannot open test img file')
+        sys.exit(2)
     testDataMagicNr, testDataSize, testDataRows, testDataCols \
                                 = struct.unpack('>IIII', testDataFile.read(16))
     try:
-        testLabelFile = open('t10k-labels.idx1-ubyte', 'rb')
+        testLabelFile = open(os.path.join(path,
+                                          't10k-labels.idx1-ubyte'), 'rb')
     except IOError:
         print('Cannot open test img file')
+        sys.exit(2)
     testLabelMagicNr, testLabelSize \
                                 = struct.unpack('>II', testLabelFile.read(8))
     test_X = []
@@ -133,12 +141,12 @@ def preprocess(originalX, originalY, label_num):
 def initbpNetWork(hidden_layer_num,
                   hidden_unit_list,
                   acfunc_list,
-                  output_func=None,
-                  sigma=None,
-                  steps=None):
-    output_func = output_func or 'sigmoid'
-    sigma = sigma or 1e-2
-    steps = steps or 10000
+                  output_func,
+                  sigma,
+                  steps):
+    output_func = output_func
+    sigma = sigma
+    steps = steps
     bp = bpNetWork(hidden_layer_num,
                     hidden_unit_list,
                     acfunc_list,
@@ -226,7 +234,7 @@ def main(argv=None):
     acfunc_list = ('tanh', )
     output_func = 'sigmoid'
     sigma = 1e-4
-    steps = 1000
+    steps = 10000
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print('help!')
@@ -240,9 +248,9 @@ def main(argv=None):
         elif opt in ('-t', '--steps'):
             steps = arg
     print('#####Loading Data.#####')
-    label_set = {1, 2}
+    label_set = {3, 4}
     label_type = len(label_set)
-    origtrain_X, origtrain_Y, origtest_X, origtest_Y = load(label_set)
+    origtrain_X, origtrain_Y, origtest_X, origtest_Y = load('./data/', label_set)
     print('Training Data Length: {}\n\
 Test Data Length: {}\n'.format(len(origtrain_Y),
                                len(origtest_Y)))

@@ -1,26 +1,15 @@
+import sys
+sys.path.append('..')
+
 from numpy import *
 from random import uniform
-from plot import plot_cost, plot_regression
+from utils.plot import plot_cost, plot_regression
 import unittest
 import bpnetwork
 
 
 class bpNetworkTest(unittest.TestCase):
-    # test layer list
-    #def init_test_layer(self):
-    #    sigma = 1e-2
-    #    unit_num = 3
-    #    acfunc = ('tanh', 'sigmoid', 'line')
-    #    w = ones((3, 1))
-    #    self.test_layer_num = 3
-    #    self.layers = tuple([bpnetwork.layer(sigma,
-    #                                   unit_num,
-    #                                   acfunc[i])
-    #                   for i in range(len(acfunc))])
-    #    for layer in self.layers:
-    #        layer.setw(w)
 
-    # test network list
     bps_edge_test_set_x = zeros((10, 1))
     bps_edge_test_set_t = ones((10, 1))
     w0 = array([[0, 0, 0],

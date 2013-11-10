@@ -1,5 +1,5 @@
 from numpy import *
-from tools import get_acfunc, get_gradfunc
+from utils.tools import get_acfunc, get_gradfunc
 import matplotlib.pyplot as plt
 import sys, time
 
