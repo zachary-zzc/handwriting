@@ -92,16 +92,7 @@ def extractPixelMapFeature(original_x):
     Output:
         X: Pixel map feature extracted from original data
     """
-    x = []
-    for pixel in original_x:
-        if 0 <= pixel < 255/4:
-            x.append(0)
-        elif 255/4 <= pixel < 255/2:
-            x.append(1)
-        elif 255/2 <= pixel < 255*3/4:
-            x.append(2)
-        elif 255*3/4 <= pixel <= 255:
-            x.append(3)
+    x = int8(array(original_x) * 4 / 256)
     return tuple(x)
 
 """Other features can be defined"""
@@ -199,10 +190,7 @@ def measureCorrectRate(test_Y, output_Y):
     """
     # raise error if test set and output set don't have same length
     size = len(test_Y)
-    count = 0
-    for iter in range(size):
-        if test_Y[iter] == output_Y[iter]:
-            count += 1
+    count = len(nonzero((array(test_Y) == array(output_Y)) == True)[0])
     return count/size
 
 
@@ -234,7 +222,7 @@ def main(argv=None):
     acfunc_list = ('tanh', )
     output_func = 'sigmoid'
     sigma = 1e-4
-    steps = 10000
+    steps = 5000
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print('help!')
@@ -248,15 +236,15 @@ def main(argv=None):
         elif opt in ('-t', '--steps'):
             steps = arg
     print('#####Loading Data.#####')
-    label_set = {3, 4}
+    label_set = set([i for i in range(10)])
     label_type = len(label_set)
-    origtrain_X, origtrain_Y, origtest_X, origtest_Y = load('./data/', label_set)
-    print('Training Data Length: {}\n\
-Test Data Length: {}\n'.format(len(origtrain_Y),
-                               len(origtest_Y)))
+    train_X, train_Y, test_X, test_Y = load('./data/', label_set)
 
     print('#####Training Data Preprocess.#####')
-    train_X, train_Y = preprocess(origtrain_X, origtrain_Y, label_type)
+    train_X, train_Y = preprocess(train_X[0: 10000], train_Y[0: 10000], label_type)
+    print('Training Data Length: {}\n\
+Test Data Length: {}\n'.format(len(train_Y),
+                               len(test_Y)))
 
     print('#####Init bpNetwork.#####')
     print('NetWork Parameter:\n\
@@ -279,23 +267,22 @@ Iterator Steps: {}\n'.format(hidden_layer_num,
                        steps)
 
     print('#####Start Training.#####')
-    bp.train(train_X[0: 1000], train_Y[0: 1000])
+    bp.train(train_X, train_Y)
     plot_cost(bp.debug_x, bp.debug_y)
-
     print('#####End Training.#####')
 
     print('#####Start Test.#####')
+
     print('#####Preprocess Test Image.#####')
-    test_X, test_Y = preprocess(origtest_X, origtest_Y, label_type)
-
+    test_X, test_Y = preprocess(test_X, test_Y, label_type)
     print('#####Start Simulate.#####')
-    test_output_Y = bp.simulate(test_X)
-
+    output_Y = bp.simulate(test_X)
     print('#####Check Correct Rate.#####')
     label_num = len(set(test_Y))
-    output_Y = postprocess(test_output_Y, label_num)
+    output_Y = postprocess(output_Y, label_num)
     correctRate = measureCorrectRate(output_Y, test_Y)
     print('Correct Rate of Classifier: {:.2f}'.format(correctRate))
+    del bp
 
 
 if __name__ == '__main__':

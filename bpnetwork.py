@@ -1,7 +1,9 @@
 from numpy import *
-from utils.tools import get_acfunc, get_gradfunc
+
+import utils.tools as tools
 import matplotlib.pyplot as plt
 import sys, time
+import gc
 
 class layer:
     def __init__(self, sigma, unit_num, acfunc):
@@ -16,11 +18,19 @@ class layer:
         """
         self.sigma = sigma
         self.unit_num = unit_num
-        self.acfunc = get_acfunc(acfunc)
-        self.gradfunc = get_gradfunc(acfunc)
+        self.acfunc = getattr(tools, acfunc)
+        self.gradfunc = getattr(tools, 'grad' + acfunc)
         self.w = []
         self.X = []
         self.T = []
+
+    def __sizeof__(self):
+        size = sys.getsizeof(self.sigma) + \
+               sys.getsizeof(self.unit_num) + \
+               sys.getsizeof(list(self.w)) + \
+               sys.getsizeof(list(self.X)) + \
+               sys.getsizeof(list(self.T))
+        return size
 
 
     def setw(self, w):
@@ -83,12 +93,28 @@ class bpNetWork:
                                    hidden_unit_num_list[i],
                                    acfunc_list[i])
                                    for i in range(hidden_layer_num)])
-        self.output_func = get_acfunc(output_func)
+        self.output_func = getattr(tools, output_func)
         self.sigma = sigma
         self.steps = steps
         self.delta_list = []
         self.debug_x = []
         self.debug_y = []
+        self.input_layer = None
+        self.cost = None
+        self.Y = None
+
+    def __sizeof__(self):
+        size = sys.getsizeof(self.hidden_layer_num) + \
+               sys.getsizeof(self.hidden_layers[0]) + \
+               sys.getsizeof(self.sigma) + \
+               sys.getsizeof(self.steps) + \
+               sys.getsizeof(self.delta_list) + \
+               sys.getsizeof(self.debug_x) + \
+               sys.getsizeof(self.debug_y) + \
+               sys.getsizeof(self.input_layer) + \
+               sys.getsizeof(self.cost) + \
+               sys.getsizeof(self.Y)
+        return size
 
 
     def initw(self, X, T):
@@ -136,9 +162,8 @@ class bpNetWork:
         if self.output_func.__name__ == 'line':
             return ((T - self.Y) ** 2).sum() / 2
         if self.output_func.__name__ == 'sigmoid':
-            # shrink self.Y avoid -infi log(self.Y) or log(1 - self.Y)
-            return (-T * log(self.Y * (1 - 1e-64)) - \
-                    (1 - T) * log(1 - self.Y * (1 - 1e-64))).sum()
+            return (-T * log(self.Y) - \
+                    (1 - T) * log(1 - self.Y)).sum()
 
 
 
@@ -154,7 +179,9 @@ class bpNetWork:
         # clear debug_x, debug_y
         self.debug_x = []
         self.debug_y = []
+        logfile = open('garbagelog', 'w')
         for step in range(self.steps):
+            del self.delta_list[:]
             self.forward_propagation(X)
             self.backward_propagation(T)
             # update coefficients for each layer
@@ -169,6 +196,8 @@ class bpNetWork:
             self.cost = self.costFunc(T)
             self.debug_x.append(step)
             self.debug_y.append(self.cost)
+            gc.enable()
+            gc.collect()
             # end iterator if cost function is lower then 1e-10
             if self.cost < 1e-64:
                 self.steps = step
