@@ -179,7 +179,7 @@ class bpNetWork:
         # clear debug_x, debug_y
         self.debug_x = []
         self.debug_y = []
-        logfile = open('garbagelog', 'w')
+        costfile = open('costfile', 'w')
         for step in range(self.steps):
             del self.delta_list[:]
             self.forward_propagation(X)
@@ -196,14 +196,10 @@ class bpNetWork:
             self.cost = self.costFunc(T)
             self.debug_x.append(step)
             self.debug_y.append(self.cost)
+            costfile.write('{}\n'.format(str(self.cost)))
             gc.enable()
             gc.collect()
-            # end iterator if cost function is lower then 1e-10
-            if self.cost < 1e-64:
-                self.steps = step
-                sys.stdout.write('bp network converge after iterator {} steps'\
-                                 .format(self.steps))
-                break
+        costfile.close()
 
 
     def simulate(self, X):

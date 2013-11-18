@@ -190,8 +190,9 @@ def measureCorrectRate(test_Y, output_Y):
     """
     # raise error if test set and output set don't have same length
     size = len(test_Y)
-    count = len(nonzero((array(test_Y) == array(output_Y)) == True)[0])
-    return count/size
+    eqlist = [test_Y[i] == output_Y[i] for i in range(size)]
+    count = len(nonzero(array(eqlist) == True)[0])
+    return 100 * count / size
 
 
 #def measurements():
@@ -222,7 +223,7 @@ def main(argv=None):
     acfunc_list = ('tanh', )
     output_func = 'sigmoid'
     sigma = 1e-4
-    steps = 5000
+    steps = 1000
     for opt, arg in opts:
         if opt in ('-h', '--help'):
             print('help!')
@@ -237,6 +238,7 @@ def main(argv=None):
             steps = arg
     print('#####Loading Data.#####')
     label_set = set([i for i in range(10)])
+    #label_set = set([0, 1, 2])
     label_type = len(label_set)
     train_X, train_Y, test_X, test_Y = load('./data/', label_set)
 
